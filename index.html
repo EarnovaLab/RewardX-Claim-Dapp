@@ -1,26 +1,25 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>RewardX Dashboard</title>
+  <title>RewardX Claim Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
   <style>
     body { font-family: Arial; padding: 20px; background: #f5f5f5; }
-    h2 { color: #333; text-align:center; }
-    .card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-    button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 8px; background-color: #4CAF50; color: white; cursor: pointer; margin-top:10px; width:100%; }
-    button:hover { background-color: #45a049; }
-    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-size:14px; }
-    th { background-color: #f2f2f2; }
-    #walletInfo { display:none; }
+    h2 { text-align:center; color: #333; }
+    .card { background:white; padding:15px; border-radius:10px; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
+    button { padding:10px 20px; font-size:16px; border:none; border-radius:8px; background-color:#4CAF50; color:white; cursor:pointer; width:100%; }
+    button:hover { background-color:#45a049; }
+    table { width:100%; border-collapse: collapse; margin-top:10px; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid #ddd; font-size:14px; }
+    th { background-color:#f2f2f2; }
   </style>
 </head>
 <body>
   <h2>RewardX Dashboard</h2>
   <button id="connect">Connect Wallet</button>
 
-  <div id="walletInfo">
+  <div id="walletInfo" style="display:none;">
     <div class="card">
       <p><strong>Wallet:</strong> <span id="account"></span></p>
       <p><strong>MATIC Balance:</strong> <span id="maticBalance">0</span></p>
@@ -63,7 +62,6 @@
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         account = await signer.getAddress();
-
         document.getElementById("account").innerText = account;
         walletInfo.style.display = "block";
 
@@ -71,20 +69,23 @@
 
         fetchBalances();
 
-        // Load existing claim history from localStorage
+        // Load claim history from localStorage
         const stored = JSON.parse(localStorage.getItem("claimHistory") || "[]");
         claimHistory = stored;
         updateHistoryTable();
 
-        // Event listener for RewardClaimed
+        // Event listener for reward claimed
         contract.on("RewardClaimed", (user, amount) => {
           if (user.toLowerCase() === account.toLowerCase()) {
             fetchBalances();
             addHistory(amount);
           }
         });
+
+        // Auto refresh pending reward every 10 sec
+        setInterval(fetchBalances, 10000);
       } else {
-        alert("Install MetaMask!");
+        alert("MetaMask not detected! Open this page inside MetaMask mobile browser.");
       }
     }
 
@@ -95,7 +96,7 @@
       const matic = await provider.getBalance(account);
       document.getElementById("maticBalance").innerText = parseFloat(ethers.utils.formatEther(matic)).toFixed(4);
 
-      // RWX balance
+      // RWX token balance
       const rwx = await contract.balanceOf(account);
       document.getElementById("rwxBalance").innerText = parseFloat(ethers.utils.formatUnits(rwx, 18)).toFixed(4);
 
@@ -131,7 +132,6 @@
     }
 
     function updateHistoryTable() {
-      // Clear table except header
       historyTable.innerHTML = "<tr><th>Timestamp</th><th>Amount RWX</th></tr>";
       claimHistory.forEach(entry => {
         const row = historyTable.insertRow(-1);
