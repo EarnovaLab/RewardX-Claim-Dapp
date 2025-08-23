@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RewardX Claim Dapp</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+</head>
+<body style="font-family: Arial; padding: 20px;">
+  <h2>RewardX Claim Dapp</h2>
+  <button id="connect" style="padding:10px 20px; font-size:16px;">Connect Wallet</button>
+  <p id="account"></p>
+  <p>Balance: <span id="balance">0</span> RWX</p>
+  <p>Pending Reward: <span id="pending">0</span> RWX</p>
+  <button id="claim" style="padding:10px 20px; font-size:16px;">Claim Reward</button>
+
+  <script>
+    const CONTRACT_ADDRESS = "0x64b9c74942e5E19ABd6140545a6489f36757C449";
+    const ABI = [
+      "function pendingReward(address account) view returns (uint256)",
+      "function claimReward()",
+      "function balanceOf(address account) view returns (uint256)",
+      "event RewardClaimed(address indexed user, uint256 amount)"
+    ];
+
+    let provider, signer, contract, account;
+
+    async function connectWallet() {
+      if (window.ethereum) {
+        await window.ethereum.request({ method: "eth_requestAccounts" });
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        signer = provider.getSigner();
+        account = await signer.getAddress();
+        document.getElementById("account").innerText = "Connected: " + account;
+        contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+        fetchBalance();
+        fetchPending();
+
+        // Optional: auto-update on RewardClaimed event
+        contract.on("RewardClaimed", (user, amount) => {
+          if (user.toLowerCase() === account.toLowerCase()) {
+            fetchBalance();
+            fetchPending();
+          }
+        });
+      } else {
+        alert("Install MetaMask!");
+      }
+    }
+
+    async function fetchBalance() {
+      if (!contract || !account) return;
+      const bal = await contract.balanceOf(account);
+      document.getElementById("balance").innerText = ethers.utils.formatUnits(bal, 18);
+    }
+
+    async function fetchPending() {
+      if (!contract || !account) return;
+      const reward = await contract.pendingReward(account);
+      document.getElementById("pending").innerText = ethers.utils.formatUnits(reward, 18);
+    }
+
+    async function claimReward() {
+      if (!contract) return;
+      try {
+        const tx = await contract.claimReward();
+        await tx.wait();
+        alert("Reward claimed!");
+        fetchBalance();
+        fetchPending();
+      } catch (err) {
+        console.error(err);
+        alert("Transaction failed or rejected");
+      }
+    }
+
+    document.getElementById("connect").onclick = connectWallet;
+    document.getElementById("claim").onclick = claimReward;
+  </script>
+</body>
+</html>
