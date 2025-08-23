@@ -1,17 +1,45 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>RewardX Claim Dapp</title>
+  <title>RewardX Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <style>
+    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+    h2 { color: #333; text-align:center; }
+    .card { background: white; padding: 15px; border-radius: 10px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+    button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 8px; background-color: #4CAF50; color: white; cursor: pointer; margin-top:10px; width:100%; }
+    button:hover { background-color: #45a049; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; font-size:14px; }
+    th { background-color: #f2f2f2; }
+    #walletInfo { display:none; }
+  </style>
 </head>
-<body style="font-family: Arial; padding: 20px;">
-  <h2>RewardX Claim Dapp</h2>
-  <button id="connect" style="padding:10px 20px; font-size:16px;">Connect Wallet</button>
-  <p id="account"></p>
-  <p>Balance: <span id="balance">0</span> RWX</p>
-  <p>Pending Reward: <span id="pending">0</span> RWX</p>
-  <button id="claim" style="padding:10px 20px; font-size:16px;">Claim Reward</button>
+<body>
+  <h2>RewardX Dashboard</h2>
+  <button id="connect">Connect Wallet</button>
+
+  <div id="walletInfo">
+    <div class="card">
+      <p><strong>Wallet:</strong> <span id="account"></span></p>
+      <p><strong>MATIC Balance:</strong> <span id="maticBalance">0</span></p>
+    </div>
+
+    <div class="card">
+      <p><strong>RWX Token Balance:</strong> <span id="rwxBalance">0</span></p>
+      <p><strong>Pending Reward:</strong> <span id="pendingReward">0</span></p>
+      <p><strong>% Token Holding:</strong> <span id="holdingPercent">0</span>%</p>
+      <button id="claim">Claim Reward</button>
+    </div>
+
+    <div class="card">
+      <h3>Last 10 Reward Claims</h3>
+      <table id="historyTable">
+        <tr><th>Timestamp</th><th>Amount RWX</th></tr>
+      </table>
+    </div>
+  </div>
 
   <script>
     const CONTRACT_ADDRESS = "0x64b9c74942e5E19ABd6140545a6489f36757C449";
@@ -19,10 +47,15 @@
       "function pendingReward(address account) view returns (uint256)",
       "function claimReward()",
       "function balanceOf(address account) view returns (uint256)",
+      "function totalSupply() view returns (uint256)",
       "event RewardClaimed(address indexed user, uint256 amount)"
     ];
 
     let provider, signer, contract, account;
+    let claimHistory = [];
+
+    const walletInfo = document.getElementById("walletInfo");
+    const historyTable = document.getElementById("historyTable");
 
     async function connectWallet() {
       if (window.ethereum) {
@@ -30,16 +63,24 @@
         provider = new ethers.providers.Web3Provider(window.ethereum);
         signer = provider.getSigner();
         account = await signer.getAddress();
-        document.getElementById("account").innerText = "Connected: " + account;
-        contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-        fetchBalance();
-        fetchPending();
 
-        // Optional: auto-update on RewardClaimed event
+        document.getElementById("account").innerText = account;
+        walletInfo.style.display = "block";
+
+        contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
+        fetchBalances();
+
+        // Load existing claim history from localStorage
+        const stored = JSON.parse(localStorage.getItem("claimHistory") || "[]");
+        claimHistory = stored;
+        updateHistoryTable();
+
+        // Event listener for RewardClaimed
         contract.on("RewardClaimed", (user, amount) => {
           if (user.toLowerCase() === account.toLowerCase()) {
-            fetchBalance();
-            fetchPending();
+            fetchBalances();
+            addHistory(amount);
           }
         });
       } else {
@@ -47,16 +88,25 @@
       }
     }
 
-    async function fetchBalance() {
-      if (!contract || !account) return;
-      const bal = await contract.balanceOf(account);
-      document.getElementById("balance").innerText = ethers.utils.formatUnits(bal, 18);
-    }
+    async function fetchBalances() {
+      if (!account || !contract) return;
 
-    async function fetchPending() {
-      if (!contract || !account) return;
-      const reward = await contract.pendingReward(account);
-      document.getElementById("pending").innerText = ethers.utils.formatUnits(reward, 18);
+      // MATIC balance
+      const matic = await provider.getBalance(account);
+      document.getElementById("maticBalance").innerText = parseFloat(ethers.utils.formatEther(matic)).toFixed(4);
+
+      // RWX balance
+      const rwx = await contract.balanceOf(account);
+      document.getElementById("rwxBalance").innerText = parseFloat(ethers.utils.formatUnits(rwx, 18)).toFixed(4);
+
+      // Pending reward
+      const pending = await contract.pendingReward(account);
+      document.getElementById("pendingReward").innerText = parseFloat(ethers.utils.formatUnits(pending, 18)).toFixed(4);
+
+      // % token holding
+      const totalSupply = await contract.totalSupply();
+      const percent = rwx.mul(1000000).div(totalSupply).toNumber() / 10000;
+      document.getElementById("holdingPercent").innerText = percent.toFixed(4);
     }
 
     async function claimReward() {
@@ -65,12 +115,31 @@
         const tx = await contract.claimReward();
         await tx.wait();
         alert("Reward claimed!");
-        fetchBalance();
-        fetchPending();
+        fetchBalances();
       } catch (err) {
         console.error(err);
         alert("Transaction failed or rejected");
       }
+    }
+
+    function addHistory(amount) {
+      const ts = new Date().toLocaleString();
+      claimHistory.unshift({ ts, amount: ethers.utils.formatUnits(amount, 18) });
+      if (claimHistory.length > 10) claimHistory.pop();
+      localStorage.setItem("claimHistory", JSON.stringify(claimHistory));
+      updateHistoryTable();
+    }
+
+    function updateHistoryTable() {
+      // Clear table except header
+      historyTable.innerHTML = "<tr><th>Timestamp</th><th>Amount RWX</th></tr>";
+      claimHistory.forEach(entry => {
+        const row = historyTable.insertRow(-1);
+        const cell1 = row.insertCell(0);
+        const cell2 = row.insertCell(1);
+        cell1.innerText = entry.ts;
+        cell2.innerText = parseFloat(entry.amount).toFixed(4);
+      });
     }
 
     document.getElementById("connect").onclick = connectWallet;
