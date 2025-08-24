@@ -3,175 +3,286 @@
 <head>
   <title>RewardX Reflection Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Ethers -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.12/dist/index.js"></script>
+
+  <!-- WalletConnect v2 (Ethereum Provider UMD) -->
+  <script src="https://unpkg.com/@walletconnect/ethereum-provider/dist/umd/index.min.js"></script>
+
   <style>
-    body { font-family: Arial; padding: 20px; background: #f5f5f5; }
-    h2 { text-align:center; color: #333; }
-    .card { background:white; padding:15px; border-radius:10px; margin-bottom:15px; box-shadow:0 2px 5px rgba(0,0,0,0.1); }
-    button { padding:10px 20px; font-size:16px; border:none; border-radius:8px; background-color:#4CAF50; color:white; cursor:pointer; width:100%; margin-top:10px; }
-    button:hover { background-color:#45a049; }
-    table { width:100%; border-collapse: collapse; margin-top:10px; }
-    th, td { text-align:left; padding:8px; border-bottom:1px solid #ddd; font-size:14px; }
-    th { background-color:#f2f2f2; }
+    body { font-family: Arial, sans-serif; padding:16px; background:#f6f7fb; }
+    h2 { text-align:center; margin-bottom:14px; }
+    .row { display:flex; gap:10px; margin-bottom:14px; }
+    .row > button { flex:1; }
+    .card { background:#fff; border-radius:12px; padding:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); margin-bottom:12px; }
+    .muted { color:#666; font-size:13px; }
+    button { padding:12px; border:0; border-radius:10px; font-size:16px; cursor:pointer; background:#1a73e8; color:#fff; }
+    button.secondary { background:#16a34a; }
+    button.gray { background:#64748b; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { text-align:left; padding:8px; border-bottom:1px solid #eee; font-size:14px; }
+    th { background:#f3f4f6; }
+    #walletInfo { display:none; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
+    .status { font-size:12px; color:#555; margin-top:6px; }
   </style>
 </head>
 <body>
   <h2>RewardX Reflection Dashboard</h2>
-  <button id="connect">Connect Wallet</button>
 
-  <div id="walletInfo" style="display:none;">
+  <div class="row">
+    <button id="connectInjected">Connect (MetaMask / Injected)</button>
+    <button id="connectWC" class="secondary">Connect (WalletConnect)</button>
+  </div>
+  <div class="card muted">
+    Tip: MetaMask users “Injected” button use karein. Trust Wallet / SafePal users “WalletConnect” use karein.
+    <div id="status" class="status"></div>
+  </div>
+
+  <div id="walletInfo">
     <div class="card">
-      <p><strong>Wallet:</strong> <span id="account"></span></p>
-      <p><strong>MATIC Balance:</strong> <span id="maticBalance">0</span></p>
+      <div><strong>Connected:</strong> <span id="account" class="mono"></span></div>
+      <div style="margin-top:6px;">
+        <strong>Network:</strong> <span id="network"></span>
+        <button id="switchPolygon" class="gray" style="float:right;">Switch to Polygon</button>
+      </div>
+      <div style="margin-top:6px;"><strong>MATIC Balance:</strong> <span id="maticBalance">0</span></div>
     </div>
 
     <div class="card">
-      <p><strong>RWX Token Balance:</strong> <span id="rwxBalance">0</span></p>
-      <p><strong>Pending Reward:</strong> <span id="pendingReward">0</span></p>
-      <p><strong>% Token Holding:</strong> <span id="holdingPercent">0</span>%</p>
+      <div><strong>RWX Token Balance:</strong> <span id="rwxBalance">0</span></div>
+      <div><strong>Pending Reward:</strong> <span id="pendingReward">0</span></div>
+      <div><strong>% Token Holding:</strong> <span id="holdingPercent">0</span>%</div>
       <button id="claim">Claim Reward</button>
     </div>
 
     <div class="card">
-      <h3>Last 10 Reward Claims</h3>
+      <h3 style="margin:6px 0 10px;">Last 10 Reward Claims</h3>
       <table id="historyTable">
         <tr><th>Timestamp</th><th>Amount RWX</th></tr>
       </table>
     </div>
   </div>
 
-  <script>
-    const CONTRACT_ADDRESS = "0x64b9c74942e5E19ABd6140545a6489f36757C449"; // RWX contract
-    const ABI = [
-      "function pendingReward(address account) view returns (uint256)",
-      "function claimReward()",
-      "function balanceOf(address account) view returns (uint256)",
-      "function totalSupply() view returns (uint256)",
-      "event RewardClaimed(address indexed user, uint256 amount)"
-    ];
+<script>
+/* ========= CONFIG ========= */
+const CONTRACT_ADDRESS = "0x64b9c74942e5E19ABd6140545a6489f36757C449"; // RWX
+const ABI = [
+  "function pendingReward(address) view returns (uint256)",
+  "function claimReward()",
+  "function balanceOf(address) view returns (uint256)",
+  "function totalSupply() view returns (uint256)",
+  "event RewardClaimed(address indexed user, uint256 amount)"
+];
 
-    let provider, signer, contract, account;
-    let web3Modal, wcProvider;
-    let claimHistory = [];
+// ✅ Your WalletConnect Cloud Project ID (already set as you gave)
+const WC_PROJECT_ID = "2e4428e396af821c4d692cd9b928f8a4";
 
-    const walletInfo = document.getElementById("walletInfo");
-    const historyTable = document.getElementById("historyTable");
+// Polygon chain params
+const POLYGON = {
+  chainId: "0x89", // 137
+  chainName: "Polygon Mainnet",
+  nativeCurrency: { name:"MATIC", symbol:"MATIC", decimals:18 },
+  rpcUrls: [
+    "https://polygon-rpc.com",
+    "https://rpc.ankr.com/polygon",
+    "https://polygon.meowrpc.com"
+  ],
+  blockExplorerUrls: ["https://polygonscan.com/"]
+};
 
-    async function initWeb3Modal() {
-      web3Modal = new Web3Modal.default({
-        cacheProvider: false,
-        providerOptions: {
-          walletconnect: {
-            package: window.WalletConnectProvider.default,
-            options: {
-              rpc: { 137: "https://polygon-rpc.com" },
-              chainId: 137
-            }
-          }
-        }
-      });
+/* ========= STATE ========= */
+let extProvider = null;     // EIP-1193 provider (injected or WalletConnect)
+let ethersProvider = null;  // ethers.js provider
+let signer = null;
+let contract = null;
+let account = null;
+let claimHistory = [];
+
+/* ========= DOM ========= */
+const $ = (id)=>document.getElementById(id);
+const statusEl = $("status");
+const walletInfo = $("walletInfo");
+const historyTable = $("historyTable");
+
+/* ========= HELPERS ========= */
+function logStatus(msg){ statusEl.textContent = msg || ""; }
+function shortAddr(a){ return a ? a.slice(0,6) + "..." + a.slice(-4) : ""; }
+function setNetworkUI(chainIdHex){
+  const isPolygon = chainIdHex==="0x89" || chainIdHex===137 || chainIdHex===0x89;
+  $("network").innerText = isPolygon ? "Polygon Mainnet" : chainIdHex;
+}
+async function ensurePolygon(){
+  try{
+    await extProvider.request({ method:"wallet_switchEthereumChain", params:[{ chainId: POLYGON.chainId }] });
+  }catch(err){
+    if(err && err.code === 4902){ // chain not added
+      await extProvider.request({ method:"wallet_addEthereumChain", params:[ POLYGON ] });
+    }else{
+      throw err;
     }
+  }
+}
 
-    async function connectWallet() {
-      try {
-        wcProvider = await web3Modal.connect();
-        provider = new ethers.providers.Web3Provider(wcProvider);
-        signer = provider.getSigner();
-        account = await signer.getAddress();
-        document.getElementById("account").innerText = account;
-        walletInfo.style.display = "block";
+/* ========= CONNECT: INJECTED ========= */
+async function connectInjected(){
+  if(!window.ethereum){
+    alert("Injected wallet not found. Use WalletConnect for Trust/SafePal.");
+    return;
+  }
+  logStatus("Requesting injected wallet permission…");
+  extProvider = window.ethereum;
+  await extProvider.request({ method:"eth_requestAccounts" });
+  await afterProviderReady();
+}
 
-        contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+/* ========= CONNECT: WALLETCONNECT v2 ========= */
+async function connectWalletConnect(){
+  const EthereumProvider = window.WalletConnectProvider?.EthereumProvider;
+  if(!EthereumProvider){
+    alert("WalletConnect provider script failed to load.");
+    return;
+  }
+  logStatus("Opening WalletConnect session…");
 
-        fetchBalances();
+  // Init WC provider
+  extProvider = await EthereumProvider.init({
+    projectId: WC_PROJECT_ID,
+    chains: [137],                 // Polygon
+    optionalChains: [1,56,80001],
+    showQrModal: true,
+    rpcMap: { 137: POLYGON.rpcUrls[0] },
+    methods: [
+      "eth_sendTransaction","eth_signTransaction","eth_sign","personal_sign",
+      "eth_signTypedData","wallet_switchEthereumChain","wallet_addEthereumChain"
+    ]
+  });
 
-        const stored = JSON.parse(localStorage.getItem("claimHistory") || "[]");
-        claimHistory = stored;
-        updateHistoryTable();
+  await extProvider.connect(); // triggers deep-link / selection
+  await afterProviderReady();
+}
 
-        // Event listener
-        contract.on("RewardClaimed", (user, amount) => {
-          if (user.toLowerCase() === account.toLowerCase()) {
-            fetchBalances();
-            addHistory(amount);
-          }
-        });
+/* ========= COMMON SETUP AFTER CONNECT ========= */
+async function afterProviderReady(){
+  ethersProvider = new ethers.providers.Web3Provider(extProvider, "any");
+  signer = ethersProvider.getSigner();
+  account = await signer.getAddress();
+  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
-        setInterval(fetchBalances, 10000);
+  walletInfo.style.display = "block";
+  $("account").innerText = account + " (" + shortAddr(account) + ")";
+  const net = await ethersProvider.getNetwork();
+  setNetworkUI("0x" + net.chainId.toString(16));
 
-        wcProvider.on("accountsChanged", (accounts) => {
-          account = accounts[0];
-          document.getElementById("account").innerText = account;
-          fetchBalances();
-        });
+  // Switch to Polygon if needed
+  if(net.chainId !== 137){
+    try { await ensurePolygon(); } catch(e){ console.warn("Switch rejected:", e); }
+  }
 
-        wcProvider.on("chainChanged", (chainId) => {
-          fetchBalances();
-        });
+  await fetchBalances();
 
-        wcProvider.on("disconnect", () => {
-          alert("Wallet disconnected");
-          location.reload();
-        });
-      } catch (err) {
-        console.error(err);
-        alert("Connection failed or cancelled");
-      }
+  // restore claim history
+  claimHistory = JSON.parse(localStorage.getItem("claimHistory") || "[]");
+  updateHistoryTable();
+
+  // provider listeners
+  if(extProvider.on){
+    extProvider.on("accountsChanged", async (accounts)=>{
+      account = accounts[0];
+      $("account").innerText = account ? (account + " (" + shortAddr(account) + ")") : "";
+      await fetchBalances();
+    });
+    extProvider.on("chainChanged", async (chainId)=>{
+      setNetworkUI(chainId);
+      await fetchBalances();
+    });
+    extProvider.on("disconnect", ()=>{
+      alert("Wallet disconnected");
+      location.reload();
+    });
+  }
+
+  // contract event
+  contract.on("RewardClaimed", (user, amount)=>{
+    if(user.toLowerCase() === account.toLowerCase()){
+      fetchBalances();
+      addHistory(amount);
     }
+  });
 
-    async function fetchBalances() {
-      if (!account || !contract) return;
+  setInterval(fetchBalances, 10000);
+  logStatus("");
+}
 
-      const matic = await provider.getBalance(account);
-      document.getElementById("maticBalance").innerText = parseFloat(ethers.utils.formatEther(matic)).toFixed(4);
+/* ========= BUTTON HOOKS ========= */
+$("switchPolygon").onclick = async ()=>{
+  try { await ensurePolygon(); } catch(e){ alert("Switch failed: " + (e?.message||e)); }
+};
+$("connectInjected").onclick = async ()=>{ try{ await connectInjected(); }catch(e){ console.error(e); alert("Injected connect failed or cancelled"); } };
+$("connectWC").onclick       = async ()=>{ try{ await connectWalletConnect(); }catch(e){ console.error(e); alert("WalletConnect: connection failed or cancelled"); } };
+$("claim").onclick           = async ()=>{
+  if(!contract) return;
+  try{
+    const tx = await contract.claimReward();
+    await tx.wait();
+    alert("Reward claimed!");
+    await fetchBalances();
+  }catch(e){
+    console.error(e);
+    alert("Claim failed or rejected");
+  }
+};
 
-      const rwx = await contract.balanceOf(account);
-      document.getElementById("rwxBalance").innerText = parseFloat(ethers.utils.formatUnits(rwx, 18)).toFixed(4);
+/* ========= LOADERS ========= */
+async function fetchBalances(){
+  if(!account || !contract) return;
+  logStatus("Refreshing balances…");
+  const net = await ethersProvider.getNetwork();
+  setNetworkUI("0x" + net.chainId.toString(16));
 
-      const pending = await contract.pendingReward(account);
-      document.getElementById("pendingReward").innerText = parseFloat(ethers.utils.formatUnits(pending, 18)).toFixed(4);
+  // MATIC balance
+  const matic = await ethersProvider.getBalance(account);
+  $("maticBalance").innerText = parseFloat(ethers.utils.formatEther(matic)).toFixed(4);
 
-      const totalSupply = await contract.totalSupply();
-      const percent = rwx.mul(1000000).div(totalSupply).toNumber() / 10000;
-      document.getElementById("holdingPercent").innerText = percent.toFixed(4);
-    }
+  // RWX balance
+  const rwx = await contract.balanceOf(account);
 
-    async function claimReward() {
-      if (!contract) return;
-      try {
-        const tx = await contract.claimReward();
-        await tx.wait();
-        alert("Reward claimed!");
-        fetchBalances();
-      } catch (err) {
-        console.error(err);
-        alert("Transaction failed or rejected");
-      }
-    }
+  // total supply
+  const total = await contract.totalSupply();
 
-    function addHistory(amount) {
-      const ts = new Date().toLocaleString();
-      claimHistory.unshift({ ts, amount: ethers.utils.formatUnits(amount, 18) });
-      if (claimHistory.length > 10) claimHistory.pop();
-      localStorage.setItem("claimHistory", JSON.stringify(claimHistory));
-      updateHistoryTable();
-    }
+  // pending reward
+  const pending = await contract.pendingReward(account);
 
-    function updateHistoryTable() {
-      historyTable.innerHTML = "<tr><th>Timestamp</th><th>Amount RWX</th></tr>";
-      claimHistory.forEach(entry => {
-        const row = historyTable.insertRow(-1);
-        row.insertCell(0).innerText = entry.ts;
-        row.insertCell(1).innerText = parseFloat(entry.amount).toFixed(4);
-      });
-    }
+  $("rwxBalance").innerText = parseFloat(ethers.utils.formatUnits(rwx, 18)).toFixed(4);
+  $("pendingReward").innerText = parseFloat(ethers.utils.formatUnits(pending, 18)).toFixed(4);
 
-    document.getElementById("connect").onclick = connectWallet;
-    document.getElementById("claim").onclick = claimReward;
+  // % holding (avoid big integer overflow by using floats)
+  const rwxF = Number(ethers.utils.formatUnits(rwx, 18));
+  const totalF = Math.max(1e-18, Number(ethers.utils.formatUnits(total, 18)));
+  const pct = (rwxF / totalF) * 100;
+  $("holdingPercent").innerText = pct.toFixed(6);
 
-    initWeb3Modal();
-  </script>
+  logStatus("");
+}
+
+/* ========= HISTORY ========= */
+function addHistory(amountBN){
+  const ts = new Date().toLocaleString();
+  const amt = ethers.utils.formatUnits(amountBN, 18);
+  claimHistory.unshift({ ts, amount: amt });
+  if (claimHistory.length > 10) claimHistory.pop();
+  localStorage.setItem("claimHistory", JSON.stringify(claimHistory));
+  updateHistoryTable();
+}
+function updateHistoryTable(){
+  historyTable.innerHTML = "<tr><th>Timestamp</th><th>Amount RWX</th></tr>";
+  claimHistory.forEach(e=>{
+    const row = historyTable.insertRow(-1);
+    row.insertCell(0).innerText = e.ts;
+    row.insertCell(1).innerText = parseFloat(e.amount).toFixed(4);
+  });
+}
+</script>
 </body>
 </html>
