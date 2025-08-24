@@ -4,6 +4,8 @@
   <title>RewardX Reflection Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.7.8/dist/umd/index.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/web3modal@1.9.12/dist/index.js"></script>
   <style>
     body { font-family: Arial; padding: 20px; background: #f5f5f5; }
     h2 { text-align:center; color: #333; }
@@ -51,15 +53,31 @@
     ];
 
     let provider, signer, contract, account;
+    let web3Modal, wcProvider;
     let claimHistory = [];
 
     const walletInfo = document.getElementById("walletInfo");
     const historyTable = document.getElementById("historyTable");
 
+    async function initWeb3Modal() {
+      web3Modal = new Web3Modal.default({
+        cacheProvider: false,
+        providerOptions: {
+          walletconnect: {
+            package: window.WalletConnectProvider.default,
+            options: {
+              rpc: { 137: "https://polygon-rpc.com" },
+              chainId: 137
+            }
+          }
+        }
+      });
+    }
+
     async function connectWallet() {
-      if (window.ethereum) {
-        await window.ethereum.request({ method: "eth_requestAccounts" });
-        provider = new ethers.providers.Web3Provider(window.ethereum);
+      try {
+        wcProvider = await web3Modal.connect();
+        provider = new ethers.providers.Web3Provider(wcProvider);
         signer = provider.getSigner();
         account = await signer.getAddress();
         document.getElementById("account").innerText = account;
@@ -69,12 +87,11 @@
 
         fetchBalances();
 
-        // Load claim history
         const stored = JSON.parse(localStorage.getItem("claimHistory") || "[]");
         claimHistory = stored;
         updateHistoryTable();
 
-        // Listen for RewardClaimed event
+        // Event listener
         contract.on("RewardClaimed", (user, amount) => {
           if (user.toLowerCase() === account.toLowerCase()) {
             fetchBalances();
@@ -82,10 +99,25 @@
           }
         });
 
-        // Auto-refresh every 10s
         setInterval(fetchBalances, 10000);
-      } else {
-        alert("MetaMask not detected! Open this page in MetaMask mobile browser.");
+
+        wcProvider.on("accountsChanged", (accounts) => {
+          account = accounts[0];
+          document.getElementById("account").innerText = account;
+          fetchBalances();
+        });
+
+        wcProvider.on("chainChanged", (chainId) => {
+          fetchBalances();
+        });
+
+        wcProvider.on("disconnect", () => {
+          alert("Wallet disconnected");
+          location.reload();
+        });
+      } catch (err) {
+        console.error(err);
+        alert("Connection failed or cancelled");
       }
     }
 
@@ -138,6 +170,8 @@
 
     document.getElementById("connect").onclick = connectWallet;
     document.getElementById("claim").onclick = claimReward;
+
+    initWeb3Modal();
   </script>
 </body>
 </html>
