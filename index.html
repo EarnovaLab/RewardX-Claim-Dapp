@@ -8,9 +8,6 @@
   <!-- Ethers (UMD) -->
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
-  <!-- WalletConnect v2 Ethereum Provider (UMD) -->
-  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.9.0/dist/umd/index.min.js"></script>
-
   <style>
     :root{
       --bg:#0f1724;
@@ -26,7 +23,6 @@
     h1{color:#e6eef8; font-size:20px; margin:0;}
     .btn-row{display:flex; gap:10px; margin-top:8px;}
     button.primary{background:linear-gradient(90deg,var(--primary),#3b82f6); color:white; padding:12px 14px; border-radius:12px; border:0; font-weight:600; box-shadow:0 6px 18px rgba(96,165,250,0.12);}
-    button.secondary{background:linear-gradient(90deg,#10b981,#059669); color:white; padding:12px 14px; border-radius:12px; border:0; font-weight:600;}
     .muted{color:var(--muted); font-size:13px;}
     .grid{display:grid; grid-template-columns: 1fr; gap:12px;}
     @media(min-width:720px){ .grid{grid-template-columns: 1fr 360px;} header{gap:20px;} }
@@ -54,8 +50,8 @@
 
       <div style="text-align:right">
         <div class="btn-row">
-          <button id="btnInjected" class="primary">Connect (MetaMask / Injected)</button>
-          <button id="btnWC" class="secondary">Connect (WalletConnect)</button>
+          <!-- Ab sirf ek hi button -->
+          <button id="btnInjected" class="primary">Connect Wallet</button>
         </div>
         <div id="status" class="status">Ready</div>
       </div>
@@ -73,7 +69,7 @@
             <div class="small">Network</div>
             <div id="network" class="network-pill">—</div>
             <div style="margin-top:6px">
-              <button id="switchPolygon" class="secondary" style="padding:8px 10px; font-size:13px;">Switch to Polygon</button>
+              <button id="switchPolygon" class="primary" style="padding:8px 10px; font-size:13px;">Switch to Polygon</button>
             </div>
           </div>
         </div>
@@ -111,11 +107,10 @@
 <script>
   // ---------- CONFIG ----------
   const CONTRACT_ADDRESS = "0x64b9c74942e5E19ABd6140545a6489f36757C449";
-  const WC_PROJECT_ID = "2e4428e396af821c4d692cd9b928f8a4"; // your WalletConnect Cloud project id
 
   const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"holder","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":false,"internalType":"bool","name":"exempt","type":"bool"}],"name":"FeeExemptUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"reflectionPpm","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"liquidityPpm","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"burnPpm","type":"uint256"}],"name":"FeesUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previous","type":"address"},{"indexed":true,"internalType":"address","name":"current","type":"address"}],"name":"LiquidityWalletUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"newURI","type":"string"}],"name":"LogoURIUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"RewardClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[],"name":"MAX_TOTAL_FEE_PPM","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SPECIFIED_LP_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SPECIFIED_OWNER","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"holder","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"burnPpm","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimReward","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"claimedRewards","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"pure","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"holderPercentage","outputs":[{"internalType":"uint256","name":"percentTimes1e6","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isFeeExempt","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"liquidityCollected","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"liquidityPpm","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"liquidityWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"pendingReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"reflectionPool","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"reflectionPpm","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"bool","name":"exempt","type":"bool"}],"name":"setFeeExempt","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_r","type":"uint256"},{"internalType":"uint256","name":"_l","type":"uint256"},{"internalType":"uint256","name":"_b","type":"uint256"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newWallet","type":"address"}],"name":"setLiquidityWallet","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"newURI","type":"string"}],"name":"setLogoURI","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"tokenLogoURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalBurned","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"}];
 
-  // ---------- POLYGON CHAIN CONFIG ----------
+  // ---------- POLYGON CONFIG ----------
   const POLYGON_PARAMS = {
     chainId: '0x89',
     chainName: 'Polygon Mainnet',
@@ -125,8 +120,8 @@
   };
 
   // ---------- STATE ----------
-  let extProvider = null;       // injected or walletconnect provider (EIP-1193)
-  let ethersProvider = null;    // ethers provider
+  let extProvider = null;
+  let ethersProvider = null;
   let signer = null;
   let contract = null;
   let userAddr = null;
@@ -137,15 +132,12 @@
   const diag = $('diag');
 
   function setStatus(msg){ diag.innerText = msg || ''; }
-
-  // ---------- Helpers ----------
   function short(addr){ if(!addr) return ''; return addr.slice(0,6)+'...'+addr.slice(-4); }
-  function format(n){ try{ return Number(n).toFixed(6); }catch(e){ return String(n); } }
 
-  // ---------- Connect - Injected (MetaMask etc.) ----------
+  // ---------- Connect ----------
   async function connectInjected(){
     if(!window.ethereum){
-      alert('No injected wallet found. Use WalletConnect option for Trust Wallet / SafePal.');
+      alert('No injected wallet found. Please open in MetaMask / TrustWallet browser.');
       return;
     }
     setStatus('Requesting injected wallet accounts...');
@@ -155,95 +147,45 @@
       await afterConnect();
     }catch(e){
       console.error(e);
-      alert('Connection rejected or failed: ' + (e.message||e));
+      alert('Connection failed: ' + (e.message||e));
       setStatus('');
     }
   }
 
-  // ---------- Connect - WalletConnect v2 ----------
-  async function connectWalletConnect(){
-    if(!window.WalletConnectProvider || !window.WalletConnectProvider.EthereumProvider){
-      alert('WalletConnect provider script not loaded.');
-      return;
-    }
-    setStatus('Initializing WalletConnect session...');
-    try{
-      extProvider = await window.WalletConnectProvider.EthereumProvider.init({
-        projectId: WC_PROJECT_ID,
-        chains: [137],
-        showQrModal: true,
-        rpcMap: { 137: 'https://polygon-rpc.com' }
-      });
-      await extProvider.connect();
-      await afterConnect();
-    }catch(e){
-      console.error(e);
-      alert('WalletConnect failed: ' + (e.message || e));
-      setStatus('');
-    }
-  }
-
-  // ---------- After provider ready ----------
+  // ---------- After connect ----------
   async function afterConnect(){
     ethersProvider = new ethers.providers.Web3Provider(extProvider, 'any');
     signer = ethersProvider.getSigner();
-    try{
-      userAddr = await signer.getAddress();
-    }catch(e){
-      console.error('getAddress failed', e);
-      alert('Failed to get account address.');
-      return;
-    }
+    userAddr = await signer.getAddress();
 
     $('account').innerText = userAddr + ' (' + short(userAddr) + ')';
     contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-    // show network
     const net = await ethersProvider.getNetwork();
     $('network').innerText = (net.chainId === 137 ? 'Polygon Mainnet' : 'Chain ' + net.chainId);
 
-    // switch if not polygon
     if(net.chainId !== 137){
       try{
         await extProvider.request({ method: 'wallet_switchEthereumChain', params:[{ chainId: POLYGON_PARAMS.chainId }] });
       }catch(err){
-        // try add if not added
         try{ await extProvider.request({ method: 'wallet_addEthereumChain', params:[ POLYGON_PARAMS ] }); }
         catch(e2){ console.warn('Switch/Add failed', e2); }
       }
     }
 
-    // enable claim button
     $('claimBtn').disabled = false;
-    setStatus('Connected. Loading balances...');
-
-    // load balances and pending
     await refreshAll();
 
-    // restore history
-    claimHistory = JSON.parse(localStorage.getItem('rwx_claim_history') || '[]');
-    renderHistory();
-
-    // provider events
     if(extProvider.on){
       extProvider.on('accountsChanged', async (accounts) => {
-        userAddr = accounts && accounts[0];
-        $('account').innerText = userAddr ? (userAddr + ' (' + short(userAddr) + ')') : 'Not connected';
+        userAddr = accounts[0];
+        $('account').innerText = userAddr || 'Not connected';
         await refreshAll();
-      });
-      extProvider.on('chainChanged', async (chainId) => {
-        $('network').innerText = chainId;
-        await refreshAll();
-      });
-      extProvider.on('disconnect', () => {
-        alert('Wallet disconnected');
-        location.reload();
       });
     }
 
-    // contract event
     contract.on('RewardClaimed', (user, amount) => {
-      if(user && user.toLowerCase() === userAddr.toLowerCase()){
+      if(user.toLowerCase() === userAddr.toLowerCase()){
         addHistory(amount);
         refreshAll();
       }
@@ -252,10 +194,9 @@
     setStatus('');
   }
 
-  // ---------- Refresh all data ----------
+  // ---------- Refresh ----------
   async function refreshAll(){
     if(!contract || !userAddr) return;
-    setStatus('Refreshing balances...');
     try{
       const [maticBN, rwxBN, pendingBN, totalBN] = await Promise.all([
         ethersProvider.getBalance(userAddr),
@@ -268,53 +209,36 @@
       $('rwxBal').innerText = ethers.utils.formatUnits(rwxBN, 18);
       $('pending').innerText = ethers.utils.formatUnits(pendingBN, 18);
 
-      // percent holding
       const rwxF = Number(ethers.utils.formatUnits(rwxBN, 18));
       const totalF = Math.max(1e-18, Number(ethers.utils.formatUnits(totalBN, 18)));
       $('percent').innerText = ((rwxF / totalF) * 100).toFixed(6) + '%';
 
-    }catch(e){
-      console.error('refresh error', e);
-      setStatus('Error loading data: ' + (e.message||e));
-    } finally {
-      setStatus('');
-    }
+    }catch(e){ console.error(e); }
   }
 
-  // ---------- Claim reward ----------
+  // ---------- Claim ----------
   async function claimReward(){
-    if(!contract || !userAddr) return alert('Connect wallet first');
+    if(!contract) return alert('Connect wallet first');
     try{
-      setStatus('Sending claim transaction (approve in wallet)...');
       const tx = await contract.claimReward();
-      setStatus('Waiting for confirmation...');
       await tx.wait();
-      setStatus('Claim confirmed — updating balances.');
-      addHistoryFromContract(); // try to add with value if event fired, else refresh
+      addHistoryFromContract();
       await refreshAll();
       alert('Claim successful');
-    }catch(e){
-      console.error('claim error', e);
-      alert('Claim failed or rejected: ' + (e && e.message ? e.message : e));
-      setStatus('');
-    }
+    }catch(e){ alert('Claim failed: ' + (e && e.message ? e.message : e)); }
   }
 
-  // ---------- History helpers ----------
+  // ---------- History ----------
   function addHistory(amountBN){
     const now = new Date().toLocaleString();
     const amt = ethers.utils.formatUnits(amountBN, 18);
     claimHistory.unshift({ time: now, amount: amt });
     if(claimHistory.length > 10) claimHistory.pop();
-    localStorage.setItem('rwx_claim_history', JSON.stringify(claimHistory));
     renderHistory();
   }
-  async function addHistoryFromContract(){
-    // try to read last claimed amount from claimedRewards mapping difference (best-effort)
-    // Fallback: just push "claimed" without amount
+  function addHistoryFromContract(){
     claimHistory.unshift({ time: new Date().toLocaleString(), amount: 'claimed' });
     if(claimHistory.length > 10) claimHistory.pop();
-    localStorage.setItem('rwx_claim_history', JSON.stringify(claimHistory));
     renderHistory();
   }
   function renderHistory(){
@@ -322,33 +246,27 @@
     body.innerHTML = '';
     if(!claimHistory.length){
       const tr = document.createElement('tr');
-      const td = document.createElement('td');
-      td.colSpan = 2; td.className = 'small'; td.innerText = 'No claims yet';
+      const td = document.createElement('td'); td.colSpan = 2; td.innerText = 'No claims yet';
       tr.appendChild(td); body.appendChild(tr); return;
     }
     claimHistory.forEach(item=>{
       const tr = document.createElement('tr');
-      const t1 = document.createElement('td'); t1.innerText = item.time;
-      const t2 = document.createElement('td'); t2.innerText = parseFloat(item.amount).toFixed ? parseFloat(item.amount).toFixed(6) : item.amount;
-      tr.appendChild(t1); tr.appendChild(t2);
+      tr.innerHTML = `<td>${item.time}</td><td>${item.amount}</td>`;
       body.appendChild(tr);
     });
   }
 
-  // ---------- Wire UI ----------
+  // ---------- UI Events ----------
   $('btnInjected').addEventListener('click', connectInjected);
-  $('btnWC').addEventListener('click', connectWalletConnect);
   $('claimBtn').addEventListener('click', claimReward);
   $('switchPolygon').addEventListener('click', async ()=>{
     if(!extProvider) return alert('Connect wallet first');
     try{
       await extProvider.request({ method:'wallet_addEthereumChain', params:[POLYGON_PARAMS] });
-      alert('Switch/add request sent to wallet');
-    }catch(e){ console.error(e); alert('Switch failed: ' + (e.message||e)); }
+    }catch(e){ alert('Switch failed: ' + (e && e.message ? e.message : e)); }
   });
 
-  // initial diag
-  setStatus('Ready — choose a connect method (MetaMask or WalletConnect).');
+  setStatus('Ready — click "Connect Wallet".');
 </script>
 </body>
 </html>
