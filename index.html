@@ -1,288 +1,354 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>RewardX Reflection Dashboard</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>RewardX — Reflection Claim</title>
 
-  <!-- Ethers -->
-  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <!-- Ethers (UMD) -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
 
-  <!-- WalletConnect v2 (Ethereum Provider UMD) -->
-  <script src="https://unpkg.com/@walletconnect/ethereum-provider/dist/umd/index.min.js"></script>
+  <!-- WalletConnect v2 Ethereum Provider (UMD) -->
+  <script src="https://unpkg.com/@walletconnect/ethereum-provider@2.9.0/dist/umd/index.min.js"></script>
 
   <style>
-    body { font-family: Arial, sans-serif; padding:16px; background:#f6f7fb; }
-    h2 { text-align:center; margin-bottom:14px; }
-    .row { display:flex; gap:10px; margin-bottom:14px; }
-    .row > button { flex:1; }
-    .card { background:#fff; border-radius:12px; padding:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); margin-bottom:12px; }
-    .muted { color:#666; font-size:13px; }
-    button { padding:12px; border:0; border-radius:10px; font-size:16px; cursor:pointer; background:#1a73e8; color:#fff; }
-    button.secondary { background:#16a34a; }
-    button.gray { background:#64748b; }
-    table { width:100%; border-collapse:collapse; }
-    th, td { text-align:left; padding:8px; border-bottom:1px solid #eee; font-size:14px; }
-    th { background:#f3f4f6; }
-    #walletInfo { display:none; }
-    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace; }
-    .status { font-size:12px; color:#555; margin-top:6px; }
+    :root{
+      --bg:#0f1724;
+      --card:#0b1220;
+      --muted:#9aa4b2;
+      --accent:#6ee7b7;
+      --primary:#60a5fa;
+      --glass: rgba(255,255,255,0.03);
+    }
+    html,body{height:100%; margin:0; background:linear-gradient(180deg,#071029 0%, #081225 100%); font-family:Inter,system-ui,Segoe UI,Roboto, "Helvetica Neue", Arial;}
+    .wrap{max-width:920px; margin:28px auto; padding:18px;}
+    header{display:flex;align-items:center;justify-content:space-between; gap:12px; margin-bottom:18px;}
+    h1{color:#e6eef8; font-size:20px; margin:0;}
+    .btn-row{display:flex; gap:10px; margin-top:8px;}
+    button.primary{background:linear-gradient(90deg,var(--primary),#3b82f6); color:white; padding:12px 14px; border-radius:12px; border:0; font-weight:600; box-shadow:0 6px 18px rgba(96,165,250,0.12);}
+    button.secondary{background:linear-gradient(90deg,#10b981,#059669); color:white; padding:12px 14px; border-radius:12px; border:0; font-weight:600;}
+    .muted{color:var(--muted); font-size:13px;}
+    .grid{display:grid; grid-template-columns: 1fr; gap:12px;}
+    @media(min-width:720px){ .grid{grid-template-columns: 1fr 360px;} header{gap:20px;} }
+    .card{background:var(--card); border-radius:14px; padding:14px; box-shadow:0 6px 30px rgba(2,6,23,0.5); color:#e6eef8;}
+    .small{font-size:13px; color:var(--muted);}
+    .kpi{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px;}
+    .kpi .label{color:var(--muted); font-size:13px;}
+    .kpi .value{font-weight:700; font-size:16px; color:#f8fafc;}
+    .mono{font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, "Courier New", monospace; font-size:13px;}
+    .claim-btn{width:100%; margin-top:8px; padding:12px; border-radius:10px; border:0; background:linear-gradient(90deg,#f97316,#f59e0b); color:#081225; font-weight:700; font-size:15px;}
+    table{width:100%; border-collapse:collapse; margin-top:8px;}
+    th,td{padding:8px 6px; text-align:left; font-size:13px; color: #cfe8ff;}
+    th{color:var(--muted); font-weight:600; font-size:12px;}
+    .status{font-size:13px; color:var(--muted); margin-top:6px;}
+    .network-pill{display:inline-block; padding:6px 10px; border-radius:999px; background:var(--glass); color:var(--muted); font-size:12px;}
   </style>
 </head>
 <body>
-  <h2>RewardX Reflection Dashboard</h2>
-
-  <div class="row">
-    <button id="connectInjected">Connect (MetaMask / Injected)</button>
-    <button id="connectWC" class="secondary">Connect (WalletConnect)</button>
-  </div>
-  <div class="card muted">
-    Tip: MetaMask users “Injected” button use karein. Trust Wallet / SafePal users “WalletConnect” use karein.
-    <div id="status" class="status"></div>
-  </div>
-
-  <div id="walletInfo">
-    <div class="card">
-      <div><strong>Connected:</strong> <span id="account" class="mono"></span></div>
-      <div style="margin-top:6px;">
-        <strong>Network:</strong> <span id="network"></span>
-        <button id="switchPolygon" class="gray" style="float:right;">Switch to Polygon</button>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>RewardX Reflection — Claim Portal</h1>
+        <div class="muted" style="margin-top:6px">Connect wallet to view pending reflection and claim rewards.</div>
       </div>
-      <div style="margin-top:6px;"><strong>MATIC Balance:</strong> <span id="maticBalance">0</span></div>
-    </div>
 
-    <div class="card">
-      <div><strong>RWX Token Balance:</strong> <span id="rwxBalance">0</span></div>
-      <div><strong>Pending Reward:</strong> <span id="pendingReward">0</span></div>
-      <div><strong>% Token Holding:</strong> <span id="holdingPercent">0</span>%</div>
-      <button id="claim">Claim Reward</button>
-    </div>
+      <div style="text-align:right">
+        <div class="btn-row">
+          <button id="btnInjected" class="primary">Connect (MetaMask / Injected)</button>
+          <button id="btnWC" class="secondary">Connect (WalletConnect)</button>
+        </div>
+        <div id="status" class="status">Ready</div>
+      </div>
+    </header>
 
-    <div class="card">
-      <h3 style="margin:6px 0 10px;">Last 10 Reward Claims</h3>
-      <table id="historyTable">
-        <tr><th>Timestamp</th><th>Amount RWX</th></tr>
-      </table>
+    <div class="grid">
+      <!-- Left: main controls -->
+      <div class="card">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px">
+          <div>
+            <div class="small">Connected</div>
+            <div id="account" class="mono">Not connected</div>
+          </div>
+          <div style="text-align:right">
+            <div class="small">Network</div>
+            <div id="network" class="network-pill">—</div>
+            <div style="margin-top:6px">
+              <button id="switchPolygon" class="secondary" style="padding:8px 10px; font-size:13px;">Switch to Polygon</button>
+            </div>
+          </div>
+        </div>
+
+        <hr style="border:none; height:1px; background:rgba(255,255,255,0.03); margin:12px 0">
+
+        <div class="kpi"><div class="label">MATIC Balance</div><div id="maticBal" class="value">0</div></div>
+        <div class="kpi"><div class="label">RWX Balance</div><div id="rwxBal" class="value">0</div></div>
+        <div class="kpi"><div class="label">Pending Reward</div><div id="pending" class="value" style="color:var(--accent)">0</div></div>
+        <div class="kpi"><div class="label">% Holding</div><div id="percent" class="value">0%</div></div>
+
+        <button id="claimBtn" class="claim-btn" disabled>Claim Reward</button>
+
+        <div class="small" style="margin-top:10px">Tip: pending reward updates automatically and when a claim completes.</div>
+      </div>
+
+      <!-- Right: history & diagnostics -->
+      <div>
+        <div class="card" style="margin-bottom:12px">
+          <div class="small">Last 10 Claims</div>
+          <table id="history">
+            <thead><tr><th>Time</th><th>Amount (RWX)</th></tr></thead>
+            <tbody id="historyBody"><tr><td colspan="2" class="small">No claims yet</td></tr></tbody>
+          </table>
+        </div>
+
+        <div class="card">
+          <div class="small">Diagnostics</div>
+          <div id="diag" class="small" style="margin-top:10px; color:var(--muted)">Status messages will appear here.</div>
+        </div>
+      </div>
     </div>
   </div>
 
 <script>
-/* ========= CONFIG ========= */
-const CONTRACT_ADDRESS = "0x64b9c74942e5E19ABd6140545a6489f36757C449"; // RWX
-const ABI = [
-  "function pendingReward(address) view returns (uint256)",
-  "function claimReward()",
-  "function balanceOf(address) view returns (uint256)",
-  "function totalSupply() view returns (uint256)",
-  "event RewardClaimed(address indexed user, uint256 amount)"
-];
+  // ---------- CONFIG ----------
+  const CONTRACT_ADDRESS = "0x64b9c74942e5E19ABd6140545a6489f36757C449";
+  const WC_PROJECT_ID = "2e4428e396af821c4d692cd9b928f8a4"; // your WalletConnect Cloud project id
 
-// ✅ Your WalletConnect Cloud Project ID (already set as you gave)
-const WC_PROJECT_ID = "2e4428e396af821c4d692cd9b928f8a4";
+  const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"holder","type":"address"},{"indexed":true,"internalType":"address","name":"spender","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"account","type":"address"},{"indexed":false,"internalType":"bool","name":"exempt","type":"bool"}],"name":"FeeExemptUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"reflectionPpm","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"liquidityPpm","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"burnPpm","type":"uint256"}],"name":"FeesUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previous","type":"address"},{"indexed":true,"internalType":"address","name":"current","type":"address"}],"name":"LiquidityWalletUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"string","name":"newURI","type":"string"}],"name":"LogoURIUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"previousOwner","type":"address"},{"indexed":true,"internalType":"address","name":"newOwner","type":"address"}],"name":"OwnershipTransferred","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"}],"name":"RewardClaimed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"value","type":"uint256"}],"name":"Transfer","type":"event"},{"inputs":[],"name":"MAX_TOTAL_FEE_PPM","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SPECIFIED_LP_WALLET","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"SPECIFIED_OWNER","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"holder","type":"address"},{"internalType":"address","name":"spender","type":"address"}],"name":"allowance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"spender","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"approve","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"burnPpm","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"claimReward","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"claimedRewards","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"decimals","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"pure","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"holderPercentage","outputs":[{"internalType":"uint256","name":"percentTimes1e6","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"isFeeExempt","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"liquidityCollected","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"liquidityPpm","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"liquidityWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"}],"name":"pendingReward","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"reflectionPool","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"reflectionPpm","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"renounceOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"account","type":"address"},{"internalType":"bool","name":"exempt","type":"bool"}],"name":"setFeeExempt","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_r","type":"uint256"},{"internalType":"uint256","name":"_l","type":"uint256"},{"internalType":"uint256","name":"_b","type":"uint256"}],"name":"setFees","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newWallet","type":"address"}],"name":"setLiquidityWallet","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"newURI","type":"string"}],"name":"setLogoURI","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"tokenLogoURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalBurned","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalSupply","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transfer","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"value","type":"uint256"}],"name":"transferFrom","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"newOwner","type":"address"}],"name":"transferOwnership","outputs":[],"stateMutability":"nonpayable","type":"function"}];
 
-// Polygon chain params
-const POLYGON = {
-  chainId: "0x89", // 137
-  chainName: "Polygon Mainnet",
-  nativeCurrency: { name:"MATIC", symbol:"MATIC", decimals:18 },
-  rpcUrls: [
-    "https://polygon-rpc.com",
-    "https://rpc.ankr.com/polygon",
-    "https://polygon.meowrpc.com"
-  ],
-  blockExplorerUrls: ["https://polygonscan.com/"]
-};
+  // ---------- POLYGON CHAIN CONFIG ----------
+  const POLYGON_PARAMS = {
+    chainId: '0x89',
+    chainName: 'Polygon Mainnet',
+    nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
+    rpcUrls: ['https://polygon-rpc.com'],
+    blockExplorerUrls: ['https://polygonscan.com/']
+  };
 
-/* ========= STATE ========= */
-let extProvider = null;     // EIP-1193 provider (injected or WalletConnect)
-let ethersProvider = null;  // ethers.js provider
-let signer = null;
-let contract = null;
-let account = null;
-let claimHistory = [];
+  // ---------- STATE ----------
+  let extProvider = null;       // injected or walletconnect provider (EIP-1193)
+  let ethersProvider = null;    // ethers provider
+  let signer = null;
+  let contract = null;
+  let userAddr = null;
+  let claimHistory = [];
 
-/* ========= DOM ========= */
-const $ = (id)=>document.getElementById(id);
-const statusEl = $("status");
-const walletInfo = $("walletInfo");
-const historyTable = $("historyTable");
+  // ---------- DOM ----------
+  const $ = id => document.getElementById(id);
+  const diag = $('diag');
 
-/* ========= HELPERS ========= */
-function logStatus(msg){ statusEl.textContent = msg || ""; }
-function shortAddr(a){ return a ? a.slice(0,6) + "..." + a.slice(-4) : ""; }
-function setNetworkUI(chainIdHex){
-  const isPolygon = chainIdHex==="0x89" || chainIdHex===137 || chainIdHex===0x89;
-  $("network").innerText = isPolygon ? "Polygon Mainnet" : chainIdHex;
-}
-async function ensurePolygon(){
-  try{
-    await extProvider.request({ method:"wallet_switchEthereumChain", params:[{ chainId: POLYGON.chainId }] });
-  }catch(err){
-    if(err && err.code === 4902){ // chain not added
-      await extProvider.request({ method:"wallet_addEthereumChain", params:[ POLYGON ] });
-    }else{
-      throw err;
+  function setStatus(msg){ diag.innerText = msg || ''; }
+
+  // ---------- Helpers ----------
+  function short(addr){ if(!addr) return ''; return addr.slice(0,6)+'...'+addr.slice(-4); }
+  function format(n){ try{ return Number(n).toFixed(6); }catch(e){ return String(n); } }
+
+  // ---------- Connect - Injected (MetaMask etc.) ----------
+  async function connectInjected(){
+    if(!window.ethereum){
+      alert('No injected wallet found. Use WalletConnect option for Trust Wallet / SafePal.');
+      return;
+    }
+    setStatus('Requesting injected wallet accounts...');
+    extProvider = window.ethereum;
+    try{
+      await extProvider.request({ method: 'eth_requestAccounts' });
+      await afterConnect();
+    }catch(e){
+      console.error(e);
+      alert('Connection rejected or failed: ' + (e.message||e));
+      setStatus('');
     }
   }
-}
 
-/* ========= CONNECT: INJECTED ========= */
-async function connectInjected(){
-  if(!window.ethereum){
-    alert("Injected wallet not found. Use WalletConnect for Trust/SafePal.");
-    return;
-  }
-  logStatus("Requesting injected wallet permission…");
-  extProvider = window.ethereum;
-  await extProvider.request({ method:"eth_requestAccounts" });
-  await afterProviderReady();
-}
-
-/* ========= CONNECT: WALLETCONNECT v2 ========= */
-async function connectWalletConnect(){
-  const EthereumProvider = window.WalletConnectProvider?.EthereumProvider;
-  if(!EthereumProvider){
-    alert("WalletConnect provider script failed to load.");
-    return;
-  }
-  logStatus("Opening WalletConnect session…");
-
-  // Init WC provider
-  extProvider = await EthereumProvider.init({
-    projectId: WC_PROJECT_ID,
-    chains: [137],                 // Polygon
-    optionalChains: [1,56,80001],
-    showQrModal: true,
-    rpcMap: { 137: POLYGON.rpcUrls[0] },
-    methods: [
-      "eth_sendTransaction","eth_signTransaction","eth_sign","personal_sign",
-      "eth_signTypedData","wallet_switchEthereumChain","wallet_addEthereumChain"
-    ]
-  });
-
-  await extProvider.connect(); // triggers deep-link / selection
-  await afterProviderReady();
-}
-
-/* ========= COMMON SETUP AFTER CONNECT ========= */
-async function afterProviderReady(){
-  ethersProvider = new ethers.providers.Web3Provider(extProvider, "any");
-  signer = ethersProvider.getSigner();
-  account = await signer.getAddress();
-  contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
-  walletInfo.style.display = "block";
-  $("account").innerText = account + " (" + shortAddr(account) + ")";
-  const net = await ethersProvider.getNetwork();
-  setNetworkUI("0x" + net.chainId.toString(16));
-
-  // Switch to Polygon if needed
-  if(net.chainId !== 137){
-    try { await ensurePolygon(); } catch(e){ console.warn("Switch rejected:", e); }
-  }
-
-  await fetchBalances();
-
-  // restore claim history
-  claimHistory = JSON.parse(localStorage.getItem("claimHistory") || "[]");
-  updateHistoryTable();
-
-  // provider listeners
-  if(extProvider.on){
-    extProvider.on("accountsChanged", async (accounts)=>{
-      account = accounts[0];
-      $("account").innerText = account ? (account + " (" + shortAddr(account) + ")") : "";
-      await fetchBalances();
-    });
-    extProvider.on("chainChanged", async (chainId)=>{
-      setNetworkUI(chainId);
-      await fetchBalances();
-    });
-    extProvider.on("disconnect", ()=>{
-      alert("Wallet disconnected");
-      location.reload();
-    });
-  }
-
-  // contract event
-  contract.on("RewardClaimed", (user, amount)=>{
-    if(user.toLowerCase() === account.toLowerCase()){
-      fetchBalances();
-      addHistory(amount);
+  // ---------- Connect - WalletConnect v2 ----------
+  async function connectWalletConnect(){
+    if(!window.WalletConnectProvider || !window.WalletConnectProvider.EthereumProvider){
+      alert('WalletConnect provider script not loaded.');
+      return;
     }
-  });
-
-  setInterval(fetchBalances, 10000);
-  logStatus("");
-}
-
-/* ========= BUTTON HOOKS ========= */
-$("switchPolygon").onclick = async ()=>{
-  try { await ensurePolygon(); } catch(e){ alert("Switch failed: " + (e?.message||e)); }
-};
-$("connectInjected").onclick = async ()=>{ try{ await connectInjected(); }catch(e){ console.error(e); alert("Injected connect failed or cancelled"); } };
-$("connectWC").onclick       = async ()=>{ try{ await connectWalletConnect(); }catch(e){ console.error(e); alert("WalletConnect: connection failed or cancelled"); } };
-$("claim").onclick           = async ()=>{
-  if(!contract) return;
-  try{
-    const tx = await contract.claimReward();
-    await tx.wait();
-    alert("Reward claimed!");
-    await fetchBalances();
-  }catch(e){
-    console.error(e);
-    alert("Claim failed or rejected");
+    setStatus('Initializing WalletConnect session...');
+    try{
+      extProvider = await window.WalletConnectProvider.EthereumProvider.init({
+        projectId: WC_PROJECT_ID,
+        chains: [137],
+        showQrModal: true,
+        rpcMap: { 137: 'https://polygon-rpc.com' }
+      });
+      await extProvider.connect();
+      await afterConnect();
+    }catch(e){
+      console.error(e);
+      alert('WalletConnect failed: ' + (e.message || e));
+      setStatus('');
+    }
   }
-};
 
-/* ========= LOADERS ========= */
-async function fetchBalances(){
-  if(!account || !contract) return;
-  logStatus("Refreshing balances…");
-  const net = await ethersProvider.getNetwork();
-  setNetworkUI("0x" + net.chainId.toString(16));
+  // ---------- After provider ready ----------
+  async function afterConnect(){
+    ethersProvider = new ethers.providers.Web3Provider(extProvider, 'any');
+    signer = ethersProvider.getSigner();
+    try{
+      userAddr = await signer.getAddress();
+    }catch(e){
+      console.error('getAddress failed', e);
+      alert('Failed to get account address.');
+      return;
+    }
 
-  // MATIC balance
-  const matic = await ethersProvider.getBalance(account);
-  $("maticBalance").innerText = parseFloat(ethers.utils.formatEther(matic)).toFixed(4);
+    $('account').innerText = userAddr + ' (' + short(userAddr) + ')';
+    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-  // RWX balance
-  const rwx = await contract.balanceOf(account);
+    // show network
+    const net = await ethersProvider.getNetwork();
+    $('network').innerText = (net.chainId === 137 ? 'Polygon Mainnet' : 'Chain ' + net.chainId);
 
-  // total supply
-  const total = await contract.totalSupply();
+    // switch if not polygon
+    if(net.chainId !== 137){
+      try{
+        await extProvider.request({ method: 'wallet_switchEthereumChain', params:[{ chainId: POLYGON_PARAMS.chainId }] });
+      }catch(err){
+        // try add if not added
+        try{ await extProvider.request({ method: 'wallet_addEthereumChain', params:[ POLYGON_PARAMS ] }); }
+        catch(e2){ console.warn('Switch/Add failed', e2); }
+      }
+    }
 
-  // pending reward
-  const pending = await contract.pendingReward(account);
+    // enable claim button
+    $('claimBtn').disabled = false;
+    setStatus('Connected. Loading balances...');
 
-  $("rwxBalance").innerText = parseFloat(ethers.utils.formatUnits(rwx, 18)).toFixed(4);
-  $("pendingReward").innerText = parseFloat(ethers.utils.formatUnits(pending, 18)).toFixed(4);
+    // load balances and pending
+    await refreshAll();
 
-  // % holding (avoid big integer overflow by using floats)
-  const rwxF = Number(ethers.utils.formatUnits(rwx, 18));
-  const totalF = Math.max(1e-18, Number(ethers.utils.formatUnits(total, 18)));
-  const pct = (rwxF / totalF) * 100;
-  $("holdingPercent").innerText = pct.toFixed(6);
+    // restore history
+    claimHistory = JSON.parse(localStorage.getItem('rwx_claim_history') || '[]');
+    renderHistory();
 
-  logStatus("");
-}
+    // provider events
+    if(extProvider.on){
+      extProvider.on('accountsChanged', async (accounts) => {
+        userAddr = accounts && accounts[0];
+        $('account').innerText = userAddr ? (userAddr + ' (' + short(userAddr) + ')') : 'Not connected';
+        await refreshAll();
+      });
+      extProvider.on('chainChanged', async (chainId) => {
+        $('network').innerText = chainId;
+        await refreshAll();
+      });
+      extProvider.on('disconnect', () => {
+        alert('Wallet disconnected');
+        location.reload();
+      });
+    }
 
-/* ========= HISTORY ========= */
-function addHistory(amountBN){
-  const ts = new Date().toLocaleString();
-  const amt = ethers.utils.formatUnits(amountBN, 18);
-  claimHistory.unshift({ ts, amount: amt });
-  if (claimHistory.length > 10) claimHistory.pop();
-  localStorage.setItem("claimHistory", JSON.stringify(claimHistory));
-  updateHistoryTable();
-}
-function updateHistoryTable(){
-  historyTable.innerHTML = "<tr><th>Timestamp</th><th>Amount RWX</th></tr>";
-  claimHistory.forEach(e=>{
-    const row = historyTable.insertRow(-1);
-    row.insertCell(0).innerText = e.ts;
-    row.insertCell(1).innerText = parseFloat(e.amount).toFixed(4);
+    // contract event
+    contract.on('RewardClaimed', (user, amount) => {
+      if(user && user.toLowerCase() === userAddr.toLowerCase()){
+        addHistory(amount);
+        refreshAll();
+      }
+    });
+
+    setStatus('');
+  }
+
+  // ---------- Refresh all data ----------
+  async function refreshAll(){
+    if(!contract || !userAddr) return;
+    setStatus('Refreshing balances...');
+    try{
+      const [maticBN, rwxBN, pendingBN, totalBN] = await Promise.all([
+        ethersProvider.getBalance(userAddr),
+        contract.balanceOf(userAddr),
+        contract.pendingReward(userAddr),
+        contract.totalSupply()
+      ]);
+
+      $('maticBal').innerText = ethers.utils.formatEther(maticBN);
+      $('rwxBal').innerText = ethers.utils.formatUnits(rwxBN, 18);
+      $('pending').innerText = ethers.utils.formatUnits(pendingBN, 18);
+
+      // percent holding
+      const rwxF = Number(ethers.utils.formatUnits(rwxBN, 18));
+      const totalF = Math.max(1e-18, Number(ethers.utils.formatUnits(totalBN, 18)));
+      $('percent').innerText = ((rwxF / totalF) * 100).toFixed(6) + '%';
+
+    }catch(e){
+      console.error('refresh error', e);
+      setStatus('Error loading data: ' + (e.message||e));
+    } finally {
+      setStatus('');
+    }
+  }
+
+  // ---------- Claim reward ----------
+  async function claimReward(){
+    if(!contract || !userAddr) return alert('Connect wallet first');
+    try{
+      setStatus('Sending claim transaction (approve in wallet)...');
+      const tx = await contract.claimReward();
+      setStatus('Waiting for confirmation...');
+      await tx.wait();
+      setStatus('Claim confirmed — updating balances.');
+      addHistoryFromContract(); // try to add with value if event fired, else refresh
+      await refreshAll();
+      alert('Claim successful');
+    }catch(e){
+      console.error('claim error', e);
+      alert('Claim failed or rejected: ' + (e && e.message ? e.message : e));
+      setStatus('');
+    }
+  }
+
+  // ---------- History helpers ----------
+  function addHistory(amountBN){
+    const now = new Date().toLocaleString();
+    const amt = ethers.utils.formatUnits(amountBN, 18);
+    claimHistory.unshift({ time: now, amount: amt });
+    if(claimHistory.length > 10) claimHistory.pop();
+    localStorage.setItem('rwx_claim_history', JSON.stringify(claimHistory));
+    renderHistory();
+  }
+  async function addHistoryFromContract(){
+    // try to read last claimed amount from claimedRewards mapping difference (best-effort)
+    // Fallback: just push "claimed" without amount
+    claimHistory.unshift({ time: new Date().toLocaleString(), amount: 'claimed' });
+    if(claimHistory.length > 10) claimHistory.pop();
+    localStorage.setItem('rwx_claim_history', JSON.stringify(claimHistory));
+    renderHistory();
+  }
+  function renderHistory(){
+    const body = $('historyBody');
+    body.innerHTML = '';
+    if(!claimHistory.length){
+      const tr = document.createElement('tr');
+      const td = document.createElement('td');
+      td.colSpan = 2; td.className = 'small'; td.innerText = 'No claims yet';
+      tr.appendChild(td); body.appendChild(tr); return;
+    }
+    claimHistory.forEach(item=>{
+      const tr = document.createElement('tr');
+      const t1 = document.createElement('td'); t1.innerText = item.time;
+      const t2 = document.createElement('td'); t2.innerText = parseFloat(item.amount).toFixed ? parseFloat(item.amount).toFixed(6) : item.amount;
+      tr.appendChild(t1); tr.appendChild(t2);
+      body.appendChild(tr);
+    });
+  }
+
+  // ---------- Wire UI ----------
+  $('btnInjected').addEventListener('click', connectInjected);
+  $('btnWC').addEventListener('click', connectWalletConnect);
+  $('claimBtn').addEventListener('click', claimReward);
+  $('switchPolygon').addEventListener('click', async ()=>{
+    if(!extProvider) return alert('Connect wallet first');
+    try{
+      await extProvider.request({ method:'wallet_addEthereumChain', params:[POLYGON_PARAMS] });
+      alert('Switch/add request sent to wallet');
+    }catch(e){ console.error(e); alert('Switch failed: ' + (e.message||e)); }
   });
-}
+
+  // initial diag
+  setStatus('Ready — choose a connect method (MetaMask or WalletConnect).');
 </script>
 </body>
 </html>
